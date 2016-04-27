@@ -3,9 +3,11 @@
 
 (defn decompose
   [period ts]
-  (let [decomposition (.decompose (StlDecomposition. period)
-                                  (map (comp keyfn first) ts)
-                                  (map second ts))]
+  (let [xs (map first ts)
+        ys (map second ts) 
+        decomposition (.decompose (StlDecomposition. period) xs ys)]
     {:trend (vec (.getTrend decomposition))
      :seasonal (vec (.getSeasonal decomposition))
-     :reminder (vec (.getRemainder decomposition))}))
+     :reminder (vec (.getRemainder decomposition))
+     :xs xs
+     :ys ys}))
