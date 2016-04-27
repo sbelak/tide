@@ -16,9 +16,9 @@
 ;; <=
 
 ;; @@
-(->> (->> (csv/slurp-csv "https://vincentarelbundock.github.io/Rdatasets/csv/datasets/AirPassengers.csv"
+(->> (csv/slurp-csv "https://vincentarelbundock.github.io/Rdatasets/csv/datasets/AirPassengers.csv"
                          :cast-fns {:time #(Double/parseDouble %)
-                                    :AirPassengers #(Integer/parseInt %)}))
+                                    :AirPassengers #(Integer/parseInt %)})
      (map (juxt :time :AirPassengers))
      (tide/decompose 12)
      row-oriented
