@@ -4,4 +4,5 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [com.github.brandtg/stl-java "0.1.1"]])
+                 [com.github.brandtg/stl-java "0.1.1"]
+                 [com.github.davidmoten/fastdtw "0.1"]])
