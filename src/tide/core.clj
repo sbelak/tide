@@ -22,10 +22,12 @@
                        vec)
          decomposer (StlDecomposition. period)
          _ (reduce-kv (fn [config k v]
-                        (if-let [setter (setters k)]
-                          (setter config v)))
+                        (when-let [setter (setters k)]
+                          (setter config v))
+                        config)
                       (.getConfig decomposer)
-                      opts)
+                      (merge {:inner-loop-passes 100}
+                             opts))
          decomposition (.decompose decomposer xs (preprocess ys))]
      {:trend (postprocess (.getTrend decomposition))
       :seasonal (postprocess (.getSeasonal decomposition))
