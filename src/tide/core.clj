@@ -1,6 +1,9 @@
 (ns tide.core
   (:require [clojure.core.matrix.stats :refer [mean sd]])
-  (:import com.github.brandtg.stl.StlDecomposition))
+  (:import com.github.brandtg.stl.StlDecomposition
+           com.fastdtw.dtw.FastDTW
+           (com.fastdtw.timeseries TimeSeriesBase TimeSeriesPoint TimeSeriesItem)
+           (com.fastdtw.util Distances DistanceFunction)))
 
 (defn box-cox
   [lambda x]
@@ -61,3 +64,44 @@
       :reminder (postprocess (.getRemainder decomposition))
       :xs xs
       :ys ys})))
+
+(defn ensure-seq
+  [x]
+  (if (sequential? x)
+    x
+    [x]))
+
+(defn- build-timeseries
+  [ts]
+  (if (sequential? (first ts))
+    (.build (reduce (fn [builder [x y]]
+                      (->> y
+                           ensure-seq
+                           double-array
+                           TimeSeriesPoint.
+                           (TimeSeriesItem. x)
+                           (.add builder)))
+                    (TimeSeriesBase/builder)
+                    ts))
+    (build-timeseries (map-indexed vector ts))))
+
+(defn dtw
+  ([ts1 ts2]
+   (dtw {} ts1 ts2))
+  ([opts ts1 ts2]
+   (let [{:keys [distance search-radius]
+          :or {distance Distances/EUCLIDEAN_DISTANCE
+               search-radius 1}} opts   
+         distance-fn (if (instance? DistanceFunction distance-fn)
+                       distance-fn
+                       (reify
+                         DistanceFunction
+                         (calcDistance [this a b]
+                           (distance-fn a b))))
+         tw (FastDTW/compare (build-timeseries ts1) (build-timeseries ts2)
+                             search-radius distance-fn)
+         path (.getPath tw)]
+     {:path (for [i (range (.size path))]
+              (let [cell (.get path i)]
+                [(.getCol cell) (.getRow cell)]))
+      :distance (.getDistance tw)})))
