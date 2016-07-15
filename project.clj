@@ -3,7 +3,7 @@
   :url "https://github.com/sbelak/tide"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.9.0-alpha10"]
                  [com.github.brandtg/stl-java "0.1.1"]
                  [com.github.davidmoten/fastdtw "0.1"]
-                 [net.mikera/core.matrix "0.51.0"]])
+                 [net.mikera/core.matrix "0.52.2"]])

@@ -1,6 +1,6 @@
 # tide
 
-A Clojure library for working with timeseries data.
+A Clojure library for time series analysis.
 
 Currently it implements the following algorithms:
 
