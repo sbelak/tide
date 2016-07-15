@@ -40,7 +40,7 @@
 
 (defn decompose
   ([period ts]
-   (decompose period {} ts))
+    (decompose period {} ts))
   ([period opts ts]
    (let [xs (map first ts)
          ys (map second ts)                   
@@ -92,14 +92,14 @@
    (let [{:keys [distance search-radius]
           :or {distance Distances/EUCLIDEAN_DISTANCE
                search-radius 1}} opts   
-         distance-fn (if (instance? DistanceFunction distance-fn)
-                       distance-fn
+         distance-fn (if (instance? DistanceFunction distance)
+                       distance
                        (reify
                          DistanceFunction
                          (calcDistance [this a b]
                            (distance-fn a b))))
          tw (FastDTW/compare (build-timeseries ts1) (build-timeseries ts2)
-                             search-radius distance-fn)
+                             search-radius distance)
          path (.getPath tw)]
      {:path (for [i (range (.size path))]
               (let [cell (.get path i)]
