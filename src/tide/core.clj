@@ -6,16 +6,20 @@
            (com.fastdtw.util Distances DistanceFunction)))
 
 (defn box-cox
-  [lambda x]
-  (if (zero? lambda)
-    (Math/log x)
-    (/ (dec (Math/pow x lambda)) lambda)))
+  ([lambda]
+   (partial box-cox lambda))
+  ([lambda x]
+   (if (zero? lambda)
+     (Math/log x)
+     (/ (dec (Math/pow x lambda)) lambda))))
 
 (defn box-cox-inverse
-  [lambda x]
-  (if (zero? lambda)
-    (Math/exp x)
-    (Math/pow (inc (* lambda x)) (/ lambda))))
+  ([lambda]
+   (partial box-cox-inverse lambda))
+  ([lambda x]
+   (if (zero? lambda)
+     (Math/exp x)
+     (Math/pow (inc (* lambda x)) (/ lambda)))))
 
 (defn guerrero
   ([xs]
@@ -40,7 +44,7 @@
 
 (defn decompose
   ([period ts]
-    (decompose period {} ts))
+   (decompose period {} ts))
   ([period opts ts]
    (let [xs (map first ts)
          ys (map second ts)                   
@@ -65,7 +69,7 @@
       :xs xs
       :ys ys})))
 
-(defn ensure-seq
+(defn- ensure-seq
   [x]
   (if (sequential? x)
     x
@@ -92,13 +96,14 @@
    (let [{:keys [distance search-radius]
           :or {distance Distances/EUCLIDEAN_DISTANCE
                search-radius 1}} opts   
-         distance-fn (if (instance? DistanceFunction distance)
-                       distance
-                       (reify
-                         DistanceFunction
-                         (calcDistance [this a b]
-                           (distance-fn a b))))
-         tw (FastDTW/compare (build-timeseries ts1) (build-timeseries ts2)
+         distance (if (instance? DistanceFunction distance)
+                    distance
+                    (reify
+                      DistanceFunction
+                      (calcDistance [this a b]
+                        (distance a b))))
+         tw (FastDTW/compare (build-timeseries ts1)
+                             (build-timeseries ts2)
                              search-radius distance)
          path (.getPath tw)]
      {:path (for [i (range (.size path))]
