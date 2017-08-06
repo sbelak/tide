@@ -1,6 +1,6 @@
 (ns tide.core
   (:require [clojure.core.matrix.stats :refer [mean sd]])
-  (:import com.github.brandtg.stl.StlDecomposition
+  (:import com.github.servicenow.ds.stats.stl.SeasonalTrendLoess$Builder
            com.fastdtw.dtw.FastDTW
            (com.fastdtw.timeseries TimeSeriesBase TimeSeriesPoint TimeSeriesItem)
            (com.fastdtw.util Distances DistanceFunction)))
@@ -26,48 +26,72 @@
    (guerrero 2 xs))
   ([length xs]
    (let [sections (partition-all length xs)
-         cv (fn [lambda]
-              (let [cvs (for [section sections]
-                          (/ (sd section) 
-                             (Math/pow (mean section) (- 1 lambda))))]
-                (/ (sd cvs) 
-                   (mean cvs))))]
+         cv       (fn [lambda]
+                    (let [cvs (for [section sections]
+                                (/ (sd section)
+                                   (Math/pow (mean section) (- 1 lambda))))]
+                      (/ (sd cvs)
+                         (mean cvs))))]
      (apply min-key cv (range 0 1 0.1)))))
 
 (def ^:private setters
-  {:inner-loop-passes (memfn setNumberOfInnerLoopPasses n)
-   :robustness-iterations (memfn setNumberOfRobustnessIterations n)
-   :trend-bandwidth (memfn setTrendComponentBandwidth bw)
-   :seasonal-bandwidth (memfn setSeasonalComponentBandwidth bw)
-   :loess-robustness-iterations (memfn setLoessRobustnessIterations n)
-   :periodic? (memfn setPeriodic periodic?)})
+  {:seasonal-width (memfn setSeasonalWidth w)
+   :seasonal-degree (memfn setSeasonalDegree d)
+   :seasonal-jump (memfn setSeasonalJump j)
+   :trend-width (memfn setTrendWidth w)
+   :trend-degree (memfn setTrendDegree d)
+   :trend-jump (memfn setTrendJump j)
+   :lowpass-width (memfn setLowpassWidth w)
+   :lowpass-degree (memfn setLowpassDegree w)
+   :lowpass-jump (memfn setLowpassJump j)
+   :inner-iterations (memfn setInnerIterations n)
+   :robustness-iterations (memfn setRobustnessIterations n)
+   :robust? (memfn setRobustFlag r?)
+   :periodic? (fn [builder periodic?]
+                (if periodic?
+                  (.setPeriodic builder)
+                  builder))
+   :flat-trend? (fn [builder flat-trend?]
+                  (if flat-trend?
+                    (.setFlatTrend builder)
+                    builder))
+   :linear-trend (fn [builder linear-trend?]
+                   (if linear-trend?
+                     (.setLinearTrend builder)
+                     builder))})
 
 (defn decompose
   ([period ts]
    (decompose period {} ts))
   ([period opts ts]
-   (let [xs (map first ts)
-         ys (map second ts)                   
-         preprocess (if-let [transform (:transform opts)]
-                      (partial map transform)
-                      identity)
-         postprocess (if-let [transform (:reverse-transform opts)]
-                       (partial map transform)
-                       vec)
-         decomposer (StlDecomposition. period)
-         _ (reduce-kv (fn [config k v]
-                        (when-let [setter (setters k)]
-                          (setter config v))
-                        config)
-                      (.getConfig decomposer)
-                      (merge {:inner-loop-passes 100}
-                             opts))
-         decomposition (.decompose decomposer xs (preprocess ys))]
-     {:trend (postprocess (.getTrend decomposition))
-      :seasonal (postprocess (.getSeasonal decomposition))
-      :reminder (postprocess (.getRemainder decomposition))
-      :xs xs
-      :ys ys})))
+   (let [ys            (map second ts)
+         preprocess    (if-let [transform (:transform opts)]
+                         (partial map transform)
+                         identity)
+         postprocess   (if-let [transform (:reverse-transform opts)]
+                         (partial mapv transform)
+                         vec)]
+     (transduce identity
+                (fn
+                  ([]
+                   (-> (SeasonalTrendLoess$Builder.)
+                       (.setPeriodLength period)))
+                  ([builder]
+                   (let [decomposition (->> ys
+                                            preprocess
+                                            double-array
+                                            (.buildSmoother builder)
+                                            (.decompose))]
+                     {:trend    (postprocess (.getTrend decomposition))
+                      :seasonal (postprocess (.getSeasonal decomposition))
+                      :residual (postprocess (.getResidual decomposition))
+                      :xs       (map first ts)
+                      :ys       ys}))
+                  ([builder [k v]]
+                   (if-let [setter (setters k)]
+                     (setter builder v)
+                     builder)))
+                opts))))
 
 (defn- ensure-seq
   [x]
@@ -95,18 +119,18 @@
   ([opts ts1 ts2]
    (let [{:keys [distance search-radius]
           :or {distance Distances/EUCLIDEAN_DISTANCE
-               search-radius 1}} opts   
+               search-radius 1}} opts
          distance (if (instance? DistanceFunction distance)
                     distance
                     (reify
                       DistanceFunction
                       (calcDistance [this a b]
                         (distance a b))))
-         tw (FastDTW/compare (build-timeseries ts1)
-                             (build-timeseries ts2)
-                             search-radius distance)
-         path (.getPath tw)]
-     {:path (for [i (range (.size path))]
-              (let [cell (.get path i)]
-                [(.getCol cell) (.getRow cell)]))
+         tw       (FastDTW/compare (build-timeseries ts1)
+                                   (build-timeseries ts2)
+                                   search-radius distance)
+         path     (.getPath tw)]
+     {:path     (for [i (range (.size path))]
+                  (let [cell (.get path i)]
+                    [(.getCol cell) (.getRow cell)]))
       :distance (.getDistance tw)})))
