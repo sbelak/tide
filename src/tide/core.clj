@@ -1,5 +1,6 @@
 (ns tide.core
-  (:require [clojure.core.matrix.stats :refer [mean sd]])
+  (:require [kixi.stats.core :as stats]
+            [redux.core :as redux])
   (:import com.github.servicenow.ds.stats.stl.SeasonalTrendLoess$Builder
            com.fastdtw.dtw.FastDTW
            (com.fastdtw.timeseries TimeSeriesBase TimeSeriesPoint TimeSeriesItem)
@@ -28,10 +29,21 @@
    (let [sections (partition-all length xs)
          cv       (fn [lambda]
                     (let [cvs (for [section sections]
-                                (/ (sd section)
-                                   (Math/pow (mean section) (- 1 lambda))))]
-                      (/ (sd cvs)
-                         (mean cvs))))]
+                                (transduce
+                                 identity
+                                 (redux/post-complete
+                                  (redux/fuse {:sd   stats/standard-deviation
+                                               :mean stats/mean})
+                                  (fn [{:keys [sd mean]}]
+                                    (/ sd (Math/pow mean (- 1 lambda)))))
+                                 section))]
+                      (transduce identity
+                                 (redux/post-complete
+                                  (redux/fuse {:sd   stats/standard-deviation
+                                               :mean stats/mean})
+                                  (fn [{:keys [sd mean]}]
+                                    (/ sd mean)))
+                                 cvs)))]
      (apply min-key cv (range 0 1 0.1)))))
 
 (def ^:private setters
